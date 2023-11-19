@@ -17,7 +17,12 @@ func StartScraping() {
 		colly.AllowedDomains("hudebnibazar.cz"),
 	)
 
-	c.OnHTML("div[class=InzeratBody]", func(e *colly.HTMLElement) {
+	c.OnHTML("td[class=content]", func(e *colly.HTMLElement) {
+		if e.ChildText("div.InzeratText.dont-break-out") == "" {
+			// this is not listing, get the hell out of here
+			return
+		}
+
 		listing, err := mapPropertiesToListing(e)
 		if err != nil {
 			fmt.Printf("Error while mapping properties to listing: %s\n", err)
@@ -25,9 +30,18 @@ func StartScraping() {
 		repository.Enqueue(listing)
 	})
 
+	c.OnHTML("div[class=InzeratNadpis]", func(e *colly.HTMLElement) {
+		link, _ := e.DOM.Parent().Attr("href")
+		if isRelevantUrl(link) {
+			c.Visit(e.Request.AbsoluteURL(link))
+		}
+	})
+
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
-		c.Visit(e.Request.AbsoluteURL(link))
+		if isRelevantUrl(link) {
+			c.Visit(e.Request.AbsoluteURL(link))
+		}
 	})
 
 	// Before making a request print "Visiting ..."
@@ -39,11 +53,8 @@ func StartScraping() {
 }
 
 func mapPropertiesToListing(e *colly.HTMLElement) (models.Listing, error) {
-	headerText := e.ChildText("b")
+	headerText := e.ChildText("h1")
 	fmt.Printf("Header found: %q\n", headerText)
-
-	link := e.DOM.Find("a").Last().AttrOr("href", "")
-	link = "https://hudebnibazar.cz" + link
 
 	rawPrice := e.ChildText("div[class=InzeratCena]")
 	formattedPrice, err := formatPrice(rawPrice)
@@ -51,14 +62,16 @@ func mapPropertiesToListing(e *colly.HTMLElement) (models.Listing, error) {
 		fmt.Printf("Error while parsing price: %s\n", err)
 		return models.Listing{}, err
 	}
+	link := e.Request.URL.Path
 
 	newListing := models.Listing{
 		ID:        getIdFromUrl(link),
-		Title:     e.ChildText("div[class=InzeratNadpis]"),
+		Title:     headerText,
 		Price:     formattedPrice,
-		Link:      link,
+		Link:      "https://hudebnibazar.cz" + link,
 		Intent:    getIntentFromHTML(e),
 		DateFound: time.Now(),
+		Views:     getViewsFromHTML(e),
 	}
 	return newListing, nil
 }
@@ -97,8 +110,9 @@ func formatPrice(price string) (float32, error) {
 		return 0, nil
 	}
 
-	splits := strings.Split(price, " Kč")
-	cleanedPrice := strings.ReplaceAll(splits[0], " ", "")
+	firstPart := strings.Split(price, " Kč")[0]
+	soloPrice := strings.Split(firstPart, "Cena: ")[1]
+	cleanedPrice := strings.ReplaceAll(soloPrice, " ", "")
 
 	res, err := strconv.ParseFloat(cleanedPrice, 32)
 	if err != nil {
@@ -106,4 +120,40 @@ func formatPrice(price string) (float32, error) {
 	}
 
 	return (float32)(res), nil
+}
+
+func getViewsFromHTML(e *colly.HTMLElement) int {
+	var views int
+
+	e.ForEach("div", func(_ int, s *colly.HTMLElement) {
+		containsViews := strings.Contains(s.Text, "Zobrazeno")
+		hasCorrectParent := s.DOM.Parent().AttrOr("class", "") == "InzeratBodyDetail"
+
+		if !containsViews || !hasCorrectParent {
+			return
+		}
+
+		text := s.Text
+		numberStr := strings.TrimSpace(strings.Split(text, " ")[1])
+		numberStr = strings.Replace(numberStr, "x", "", -1)
+		views, _ = strconv.Atoi(numberStr)
+	})
+
+	return views
+}
+
+func isRelevantUrl(url string) bool {
+	if strings.Contains(url, "uzivatel") {
+		return false
+	}
+
+	if strings.Contains(url, "img_cache") {
+		return false
+	}
+
+	if strings.Contains(url, "inzerat") {
+		return false
+	}
+
+	return true
 }

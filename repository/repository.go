@@ -23,7 +23,7 @@ func InitializeDB() error {
 
 	db := openDbConnection()
 	defer db.Close()
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME, views INTEGER DEFAULT 0)")
 	if err != nil {
 		return err
 	}
@@ -47,8 +47,8 @@ func InitializeDB() error {
 func SaveListing(listing *models.Listing) error {
 	db := openDbConnection()
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO listings (id, title, price, link, intent, date_found) VALUES (?, ?, ?, ?, ?, ?)",
-		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound)
+	_, err := db.Exec("INSERT INTO listings (id, title, price, link, intent, date_found, views) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views)
 	return err
 }
 
@@ -72,7 +72,7 @@ func SaveListings(listings []models.Listing) error {
 	}()
 
 	// Prepare the INSERT statement outside the loop for better performance
-	stmt, err := tx.Prepare("INSERT INTO listings (id, title, price, link, intent, date_found) VALUES (?, ?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO listings (id, title, price, link, intent, date_found, views) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func SaveListings(listings []models.Listing) error {
 			continue
 		}
 
-		_, err := stmt.Exec(listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound)
+		_, err := stmt.Exec(listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views)
 		if err != nil {
 			if err.Error() == "UNIQUE constraint failed: listings.id" {
 				continue

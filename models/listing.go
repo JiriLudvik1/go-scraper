@@ -9,4 +9,5 @@ type Listing struct {
 	Link      string
 	Intent    string
 	DateFound time.Time
+	Views     int
 }

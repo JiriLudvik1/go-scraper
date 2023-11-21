@@ -25,7 +25,7 @@ func InitializeDB() error {
 	defer db.Close()
 
 	sqlInit := `
-	CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME, views INTEGER DEFAULT 0, username TEXT);
+	CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME, views INTEGER DEFAULT 0, username TEXT, body TEXT);
 	CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, fullName TEXT, locality TEXT, phone TEXT, rating TEXT, date_found DATETIME)
 `
 	_, err = db.Exec(sqlInit)
@@ -64,8 +64,8 @@ func UpsertUser(user *models.User) error {
 func UpsertListing(listing *models.Listing) error {
 	db := openDbConnection()
 	defer db.Close()
-	_, err := db.Exec("INSERT OR REPLACE INTO listings (id, title, price, link, intent, date_found, views, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views, listing.Username)
+	_, err := db.Exec("INSERT OR REPLACE INTO listings (id, title, price, link, intent, date_found, views, username, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views, listing.Username, listing.Body)
 
 	if err == nil {
 		AddListingToIgnoreCache(listing)

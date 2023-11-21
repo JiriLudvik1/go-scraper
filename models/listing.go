@@ -11,4 +11,5 @@ type Listing struct {
 	DateFound time.Time
 	Views     int
 	Username  string
+	Body      string
 }

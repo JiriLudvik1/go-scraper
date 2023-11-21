@@ -86,6 +86,7 @@ func mapPropertiesToListing(e *colly.HTMLElement, userName string) (*models.List
 		return nil, err
 	}
 	link := e.Request.URL.Path
+	body := e.ChildText("div.InzeratText.dont-break-out")
 
 	newListing := models.Listing{
 		ID:        getIdFromUrl(link),
@@ -96,6 +97,7 @@ func mapPropertiesToListing(e *colly.HTMLElement, userName string) (*models.List
 		DateFound: time.Now(),
 		Views:     getViewsFromHTML(e),
 		Username:  userName,
+		Body:      body,
 	}
 	return &newListing, nil
 }

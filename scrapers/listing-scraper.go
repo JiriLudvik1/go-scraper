@@ -23,20 +23,33 @@ func StartScraping() {
 			return
 		}
 
+		// MAP USER
 		user, err := mapPropertiesToUser(e)
 		if err != nil {
 			fmt.Printf("Error while mapping properties to user: %s\n", err)
 		}
-		err = repository.CreateUser(user)
-		if err != nil {
-			fmt.Printf("Error while saving user: %s\n", err)
+
+		if !repository.IsUserIgnored(user) {
+			err = repository.UpsertUser(user)
+			if err != nil {
+				fmt.Printf("Error while saving user: %s\n", err)
+			}
+			fmt.Printf("User upsert done: %s\n", user.UserName)
 		}
 
+		// MAP LISTING
 		listing, err := mapPropertiesToListing(e, user.UserName)
 		if err != nil {
 			fmt.Printf("Error while mapping properties to listing: %s\n", err)
 		}
-		err = repository.SaveListing(listing)
+		fmt.Printf("Listing upsert done: %s\n", listing.ID)
+
+		if repository.IsListingIgnored(listing) {
+			fmt.Printf("Listing already in cache: %s\n", e.Request.URL.Path)
+			return
+		}
+
+		err = repository.UpsertListing(listing)
 		if err != nil {
 			fmt.Printf("Error while saving listing: %s\n", err)
 		}
@@ -66,8 +79,6 @@ func StartScraping() {
 
 func mapPropertiesToListing(e *colly.HTMLElement, userName string) (*models.Listing, error) {
 	headerText := e.ChildText("h1")
-	fmt.Printf("Header found: %q\n", headerText)
-
 	rawPrice := e.ChildText("div[class=InzeratCena]")
 	formattedPrice, err := formatPrice(rawPrice)
 	if err != nil {

@@ -49,19 +49,28 @@ func InitializeDB() error {
 	return nil
 }
 
-func CreateUser(user *models.User) error {
+func UpsertUser(user *models.User) error {
 	db := openDbConnection()
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO users (username, fullName, locality, phone, rating, date_found) VALUES (?, ?, ?, ?, ?, ?)",
+	_, err := db.Exec("INSERT OR REPLACE INTO users (username, fullName, locality, phone, rating, date_found) VALUES (?, ?, ?, ?, ?, ?)",
 		user.UserName, user.FullName, user.Locality, user.Phone, user.Rating, user.DateFound)
+
+	if err == nil {
+		AddUserToIgnoreCache(user)
+	}
 	return err
 }
 
-func SaveListing(listing *models.Listing) error {
+func UpsertListing(listing *models.Listing) error {
 	db := openDbConnection()
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO listings (id, title, price, link, intent, date_found, views, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+	_, err := db.Exec("INSERT OR REPLACE INTO listings (id, title, price, link, intent, date_found, views, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views, listing.Username)
+
+	if err == nil {
+		AddListingToIgnoreCache(listing)
+	}
+
 	return err
 }
 

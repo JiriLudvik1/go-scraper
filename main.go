@@ -7,6 +7,7 @@ import (
 
 func main() {
 	//DB Stuff
+	repository.InitializeIgnoreCache()
 	err := repository.InitializeDB()
 	if err != nil {
 		panic(err)

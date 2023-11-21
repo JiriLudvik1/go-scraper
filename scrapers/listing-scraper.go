@@ -23,11 +23,23 @@ func StartScraping() {
 			return
 		}
 
-		listing, err := mapPropertiesToListing(e)
+		user, err := mapPropertiesToUser(e)
+		if err != nil {
+			fmt.Printf("Error while mapping properties to user: %s\n", err)
+		}
+		err = repository.CreateUser(user)
+		if err != nil {
+			fmt.Printf("Error while saving user: %s\n", err)
+		}
+
+		listing, err := mapPropertiesToListing(e, user.UserName)
 		if err != nil {
 			fmt.Printf("Error while mapping properties to listing: %s\n", err)
 		}
-		repository.Enqueue(listing)
+		err = repository.SaveListing(listing)
+		if err != nil {
+			fmt.Printf("Error while saving listing: %s\n", err)
+		}
 	})
 
 	c.OnHTML("div[class=InzeratNadpis]", func(e *colly.HTMLElement) {
@@ -52,7 +64,7 @@ func StartScraping() {
 	c.Visit("https://hudebnibazar.cz/")
 }
 
-func mapPropertiesToListing(e *colly.HTMLElement) (models.Listing, error) {
+func mapPropertiesToListing(e *colly.HTMLElement, userName string) (*models.Listing, error) {
 	headerText := e.ChildText("h1")
 	fmt.Printf("Header found: %q\n", headerText)
 
@@ -60,7 +72,7 @@ func mapPropertiesToListing(e *colly.HTMLElement) (models.Listing, error) {
 	formattedPrice, err := formatPrice(rawPrice)
 	if err != nil {
 		fmt.Printf("Error while parsing price: %s\n", err)
-		return models.Listing{}, err
+		return nil, err
 	}
 	link := e.Request.URL.Path
 
@@ -72,8 +84,46 @@ func mapPropertiesToListing(e *colly.HTMLElement) (models.Listing, error) {
 		Intent:    getIntentFromHTML(e),
 		DateFound: time.Now(),
 		Views:     getViewsFromHTML(e),
+		Username:  userName,
 	}
-	return newListing, nil
+	return &newListing, nil
+}
+
+func mapPropertiesToUser(e *colly.HTMLElement) (*models.User, error) {
+	userDiv := e.DOM.Find("div[class=user-right]")
+	userName := userDiv.Find("span[class=muted-text]").Text()
+	userName = strings.ReplaceAll(userName, "(", "")
+	userName = strings.ReplaceAll(userName, ")", "")
+
+	newUser := models.User{
+		UserName:  userName,
+		DateFound: time.Now(),
+	}
+
+	e.ForEach("div", func(_ int, s *colly.HTMLElement) {
+		if strings.Contains(s.Text, "Jméno:") {
+			splits := strings.Split(s.Text, ":")
+			valueSplits := strings.Split(splits[1], " (")
+			newUser.FullName = strings.TrimSpace(valueSplits[0])
+		}
+
+		if strings.Contains(s.Text, "Lokalita:") {
+			splits := strings.Split(s.Text, ":")
+			newUser.Locality = strings.TrimSpace(splits[1])
+		}
+
+		if strings.Contains(s.Text, "Telefon:") {
+			splits := strings.Split(s.Text, ":")
+			newUser.Phone = strings.TrimSpace(splits[1])
+		}
+
+		if strings.Contains(s.Text, "Hodnocení:") {
+			splits := strings.Split(s.Text, ":")
+			newUser.Rating = strings.TrimSpace(splits[1])
+		}
+	})
+
+	return &newUser, nil
 }
 
 func getIntentFromHTML(e *colly.HTMLElement) string {

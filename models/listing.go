@@ -10,4 +10,5 @@ type Listing struct {
 	Intent    string
 	DateFound time.Time
 	Views     int
+	Username  string
 }

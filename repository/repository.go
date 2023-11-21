@@ -23,7 +23,12 @@ func InitializeDB() error {
 
 	db := openDbConnection()
 	defer db.Close()
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME, views INTEGER DEFAULT 0)")
+
+	sqlInit := `
+	CREATE TABLE IF NOT EXISTS listings (id TEXT PRIMARY KEY, title TEXT, price REAL, link TEXT, intent TEXT, date_found DATETIME, views INTEGER DEFAULT 0, username TEXT);
+	CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, fullName TEXT, locality TEXT, phone TEXT, rating TEXT, date_found DATETIME)
+`
+	_, err = db.Exec(sqlInit)
 	if err != nil {
 		return err
 	}
@@ -44,11 +49,19 @@ func InitializeDB() error {
 	return nil
 }
 
+func CreateUser(user *models.User) error {
+	db := openDbConnection()
+	defer db.Close()
+	_, err := db.Exec("INSERT INTO users (username, fullName, locality, phone, rating, date_found) VALUES (?, ?, ?, ?, ?, ?)",
+		user.UserName, user.FullName, user.Locality, user.Phone, user.Rating, user.DateFound)
+	return err
+}
+
 func SaveListing(listing *models.Listing) error {
 	db := openDbConnection()
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO listings (id, title, price, link, intent, date_found, views) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views)
+	_, err := db.Exec("INSERT INTO listings (id, title, price, link, intent, date_found, views, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		listing.ID, listing.Title, listing.Price, listing.Link, listing.Intent, listing.DateFound, listing.Views, listing.Username)
 	return err
 }
 

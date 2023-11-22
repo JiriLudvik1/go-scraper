@@ -5,6 +5,7 @@ go 1.21.4
 require (
 	github.com/gocolly/colly v1.2.0
 	github.com/mattn/go-sqlite3 v1.14.18
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 )
 
 require (
